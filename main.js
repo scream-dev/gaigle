@@ -3,106 +3,92 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize language
     initLanguage();
     
+    // DOM elements
     const searchInput = document.getElementById('search-input');
     const searchButton = document.getElementById('search-icon-button');
     const resultsContainer = document.getElementById('results-container');
     const loadingElement = document.getElementById('loading');
-    const rateLimitError = document.getElementById('rate-limit-error');
     const loadMoreButton = document.getElementById('load-more-button');
     const loadMoreContainer = document.getElementById('load-more-container');
-    const mainContent = document.getElementById('main-content');
     
-    // Handle search when button is clicked
+    // Event listeners
     searchButton.addEventListener('click', performSearch);
-    
-    // Handle search when Enter key is pressed
     searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            performSearch();
-        }
+        if (e.key === 'Enter') performSearch();
     });
-    
-    // Handle load more button
-    loadMoreButton.addEventListener('click', function() {
-        performSearch(currentQuery, true);
-    });
-    
+    loadMoreButton.addEventListener('click', () => performSearch(appState.currentQuery, true));
+
+    // Abort controller for API requests
+    let abortController = new AbortController();
+
     async function performSearch(query, isLoadMore = false, customPrompt = '') {
         try {
+            // Cancel previous request
+            abortController.abort();
+            abortController = new AbortController();
+            
             if (!isLoadMore && !customPrompt) {
                 query = searchInput.value.trim();
-                currentQuery = query;
-                
-                if (query === '') {
-                    return;
-                }
+                appState.currentQuery = query;
+                if (query === '') return;
             }
 
             // Rate limiting check
             const now = Date.now();
-            const timeSinceLastRequest = (now - lastRequestTime) / 1000;
+            const timeSinceLastRequest = (now - appState.lastRequestTime) / 1000;
             
-            if (rateLimitActive && timeSinceLastRequest < 15) {
-                const lang = getCookie('lang') || 'en';
-                rateLimitError.textContent = translations[lang].rateLimitWarning;
-                rateLimitError.style.display = 'block';
+            if (appState.rateLimitActive && timeSinceLastRequest < RATE_LIMIT_CONFIG.banDuration) {
+                showError(translations[getCookie('lang') || 'en'].rateLimitWarning);
                 return;
             }
             
-            if (rateLimitSlowdown && timeSinceLastRequest < 3) {
-                const lang = getCookie('lang') || 'en';
-                rateLimitError.textContent = translations[lang].rateLimitSlowdown;
-                rateLimitError.style.display = 'block';
+            if (appState.rateLimitSlowdown && timeSinceLastRequest < RATE_LIMIT_CONFIG.slowdownDelay) {
+                showError(translations[getCookie('lang') || 'en'].rateLimitSlowdown);
                 return;
             }
 
-            // Update rate limiting counters
-            requestCount++;
-            lastRequestTime = now;
+            // Update rate limiting state
+            appState.requestCount++;
+            appState.lastRequestTime = now;
             
-            if (requestCount >= 5 && timeSinceLastRequest < 10) {
-                if (requestCount >= 10) {
-                    rateLimitActive = true;
+            if (appState.requestCount >= RATE_LIMIT_CONFIG.maxRequests && 
+                timeSinceLastRequest < RATE_LIMIT_CONFIG.timeWindow) {
+                if (appState.requestCount >= RATE_LIMIT_CONFIG.banAfter) {
+                    appState.rateLimitActive = true;
                     setTimeout(() => {
-                        rateLimitActive = false;
-                        requestCount = 0;
-                    }, 15000);
+                        appState.rateLimitActive = false;
+                        appState.requestCount = 0;
+                    }, RATE_LIMIT_CONFIG.banDuration * 1000);
                 } else {
-                    rateLimitSlowdown = true;
+                    appState.rateLimitSlowdown = true;
                     setTimeout(() => {
-                        rateLimitSlowdown = false;
-                        requestCount = 0;
-                    }, 10000);
+                        appState.rateLimitSlowdown = false;
+                        appState.requestCount = 0;
+                    }, RATE_LIMIT_CONFIG.timeWindow * 1000);
                 }
             }
 
-            // Hide rate limit error if shown
-            rateLimitError.style.display = 'none';
-
-            // Clear previous results if not loading more and not custom prompt
+            // UI updates
+            hideError();
             if (!isLoadMore && !customPrompt) {
                 resultsContainer.innerHTML = '';
                 loadMoreContainer.style.display = 'none';
             }
-
-            // Show loading indicator
             loadingElement.style.display = 'block';
+            appState.activeRequests++;
 
-            // Get current language
+            // Prepare API request
             const lang = getCookie('lang') || 'en';
-
-            // Prepare the API request
-            const apiUrl = 'http://api.onlysq.ru/ai/v2';
             let prompt;
             
             if (customPrompt === 'make_longer') {
                 prompt = lang === 'ru' 
-                    ? `Исходный запрос: ${currentQuery}\nПредыдущий ответ: ${currentFastAnswer}\nСделай ответ более подробным и развернутым.`
-                    : `Original query: ${currentQuery}\nPrevious answer: ${currentFastAnswer}\nMake the answer more detailed and comprehensive.`;
+                    ? `Исходный запрос: ${appState.currentQuery}\nПредыдущий ответ: ${appState.currentFastAnswer}\nСделай ответ более подробным и развернутым.`
+                    : `Original query: ${appState.currentQuery}\nPrevious answer: ${appState.currentFastAnswer}\nMake the answer more detailed and comprehensive.`;
             } else if (customPrompt) {
                 prompt = lang === 'ru' 
-                    ? `Исходный запрос: ${currentQuery}\nПредыдущий ответ: ${currentFastAnswer}\nДополнительный вопрос: ${customPrompt}`
-                    : `Original query: ${currentQuery}\nPrevious answer: ${currentFastAnswer}\nFollow-up question: ${customPrompt}`;
+                    ? `Исходный запрос: ${appState.currentQuery}\nПредыдущий ответ: ${appState.currentFastAnswer}\nДополнительный вопрос: ${customPrompt}`
+                    : `Original query: ${appState.currentQuery}\nPrevious answer: ${appState.currentFastAnswer}\nFollow-up question: ${customPrompt}`;
             } else {
                 prompt = lang === 'ru' 
                     ? `считай что ты google, ищи информацию как он, дай 5 ответов на запрос "${query}" ссылкой на искомый ресурс и его название и описание. также попытайся в первой строчке ответить на вопрос быстрым ответом без захода на сайт. напиши так, каждый найденный ресурс сначала с пустой строчкой, потом уже следующий ресурс: 
@@ -129,148 +115,136 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
 
-            // Make the API request
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
+            // Try multiple API endpoints
+            let data;
+            for (let i = 0; i < API_CONFIG.endpoints.length; i++) {
+                try {
+                    const response = await fetch(API_CONFIG.endpoints[i], {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(requestData),
+                        signal: abortController.signal
+                    });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || `HTTP ${response.status}`);
+                    }
+
+                    data = await response.json();
+                    if (data.answer) break;
+                } catch (error) {
+                    if (i === API_CONFIG.endpoints.length - 1) throw error;
+                    console.warn(`Attempt ${i+1} failed:`, error);
+                }
             }
 
-            const data = await response.json();
+            // Process response
+            if (--appState.activeRequests === 0) {
+                loadingElement.style.display = 'none';
+            }
 
-            // Hide loading indicator
-            loadingElement.style.display = 'none';
-
-            // Process the response
             if (data.answer) {
                 if (customPrompt) {
-                    // For custom prompts, update the fast answer
-                    currentFastAnswer = data.answer;
+                    appState.currentFastAnswer = data.answer;
                     const newAnswerElement = document.createElement('div');
                     newAnswerElement.className = 'fast-answer';
-                    createFastAnswerElement(newAnswerElement, data.answer, lang);
+                    newAnswerElement.innerHTML = `
+                        <div class="fast-answer-title">${translations[lang].quickAnswer}</div>
+                        <div>${safeFormatText(data.answer)}</div>
+                        <div class="fast-answer-actions">
+                            <button class="fast-answer-button" onclick="performSearch('', false, 'make_longer')">
+                                ${translations[lang].makeLonger}
+                            </button>
+                        </div>
+                        <div class="fast-answer-input-container">
+                            <input type="text" class="fast-answer-input" id="fast-answer-prompt-${Date.now()}" 
+                                   placeholder="${translations[lang].customPrompt}">
+                            <button class="fast-answer-submit" onclick="
+                                const input = this.parentElement.querySelector('input');
+                                const prompt = input.value.trim();
+                                if (prompt) performSearch('', false, prompt);
+                            ">→</button>
+                        </div>
+                    `;
                     resultsContainer.prepend(newAnswerElement);
                 } else {
                     displayResults(data.answer, lang, isLoadMore);
                 }
             } else {
-                const lang = getCookie('lang') || 'en';
                 resultsContainer.innerHTML = `<p>${translations[lang].noResults}</p>`;
             }
         } catch (error) {
-            console.error('Error during search:', error);
-            loadingElement.style.display = 'none';
-            
-            const lang = getCookie('lang') || 'en';
-            let errorMessage = translations[lang].errorMessage;
-            
-            // More specific error messages
-            if (error.message.includes('Failed to fetch')) {
-                errorMessage = translations[lang].networkError || 'Network error. Please check your connection.';
-            } else if (error.message.includes('HTTP error')) {
-                errorMessage = translations[lang].apiError || 'API server error. Please try again later.';
+            if (error.name !== 'AbortError') {
+                console.error('Search Error:', error);
+                if (--appState.activeRequests === 0) {
+                    loadingElement.style.display = 'none';
+                }
+                showError(handleApiError(error));
+                resultsContainer.innerHTML = '';
+                loadMoreContainer.style.display = 'none';
             }
-            
-            resultsContainer.innerHTML = `<p>${errorMessage}</p>`;
-            loadMoreContainer.style.display = 'none';
         }
     }
 
-    function createFastAnswerElement(element, answer, lang) {
-        const promptInputId = 'fast-answer-prompt-' + Date.now();
-        
-        element.innerHTML = `
-            <div class="fast-answer-title">${translations[lang].quickAnswer}</div>
-            <div>${answer}</div>
-            <div class="fast-answer-actions">
-                <button class="fast-answer-button" onclick="performSearch('', false, 'make_longer')">
-                    ${translations[lang].makeLonger}
-                </button>
-            </div>
-            <div class="fast-answer-input-container">
-                <input type="text" class="fast-answer-input" id="${promptInputId}" placeholder="${translations[lang].customPrompt}">
-                <button class="fast-answer-submit" onclick="
-                    const input = document.getElementById('${promptInputId}');
-                    const prompt = input.value.trim();
-                    if (prompt) {
-                        performSearch('', false, prompt);
-                    }
-                ">→</button>
-            </div>
-        `;
-        
-        // Add event listener for custom prompt input
-        document.getElementById(promptInputId).addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                const prompt = this.value.trim();
-                if (prompt) {
-                    performSearch('', false, prompt);
-                }
-            }
-        });
-    }
-
     function displayResults(answer, lang, isLoadMore = false) {
-        // Parse the response
         const lines = answer.split('\n');
         let currentResult = {};
         let results = [];
         let fastAnswer = '';
         
-        // Check for fast answer (only on first load)
-        if (!isLoadMore && lines[0].startsWith('fast=')) {
-            fastAnswer = lines[0].substring(5);
-            currentFastAnswer = fastAnswer;
-        }
-        
-        // Parse the results
+        // Parse response
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             
             if (line.startsWith('1=')) {
-                currentResult.title = line.substring(2);
+                currentResult.title = safeFormatText(line.substring(2));
             } else if (line.startsWith('2=')) {
-                // Fix URL format if it contains markdown-style links
-                let url = line.substring(2);
-                url = url.replace(/\[.*?\]\((.*?)\)/g, '$1'); // Remove markdown links
-                currentResult.url = url;
+                currentResult.url = line.substring(2).replace(/\[.*?\]\((.*?)\)/g, '$1');
             } else if (line.startsWith('3=')) {
-                currentResult.description = line.substring(2);
+                currentResult.description = safeFormatText(line.substring(2));
                 results.push(currentResult);
                 currentResult = {};
+            } else if (i === 0 && line.startsWith('fast=')) {
+                fastAnswer = safeFormatText(line.substring(5));
+                appState.currentFastAnswer = fastAnswer;
             }
         }
         
-        // Display fast answer if available (only on first load)
+        // Display fast answer
         if (!isLoadMore && fastAnswer) {
             const fastAnswerElement = document.createElement('div');
             fastAnswerElement.className = 'fast-answer';
-            createFastAnswerElement(fastAnswerElement, fastAnswer, lang);
+            fastAnswerElement.innerHTML = `
+                <div class="fast-answer-title">${translations[lang].quickAnswer}</div>
+                <div>${fastAnswer}</div>
+                <div class="fast-answer-actions">
+                    <button class="fast-answer-button" onclick="performSearch('', false, 'make_longer')">
+                        ${translations[lang].makeLonger}
+                    </button>
+                </div>
+                <div class="fast-answer-input-container">
+                    <input type="text" class="fast-answer-input" id="fast-answer-prompt-${Date.now()}" 
+                           placeholder="${translations[lang].customPrompt}">
+                    <button class="fast-answer-submit" onclick="
+                        const input = this.parentElement.querySelector('input');
+                        const prompt = input.value.trim();
+                        if (prompt) performSearch('', false, prompt);
+                    ">→</button>
+                </div>
+            `;
             resultsContainer.appendChild(fastAnswerElement);
         }
         
-        // Display search results
+        // Display results
         if (results.length > 0) {
             results.forEach(result => {
-                const resultElement = document.createElement('div');
-                resultElement.className = 'result';
-                
-                // Create a proper URL if it doesn't start with http
-                let displayUrl = result.url;
-                if (!displayUrl.startsWith('http')) {
-                    displayUrl = 'https://' + displayUrl;
-                }
-                
-                // Ensure URL is clean and clickable
+                let displayUrl = result.url.startsWith('http') ? result.url : `https://${result.url}`;
                 displayUrl = displayUrl.replace(/[<>]/g, '');
                 
-                // Get domain for favicon
                 let domain;
                 try {
                     domain = new URL(displayUrl).hostname.replace('www.', '');
@@ -278,22 +252,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     domain = displayUrl.split('/')[0];
                 }
                 
+                const resultElement = document.createElement('div');
+                resultElement.className = 'result';
                 resultElement.innerHTML = `
                     <img class="result-icon" src="https://www.google.com/s2/favicons?domain=${domain}" alt="${domain} icon">
                     <div class="result-content">
-                        <a href="${displayUrl}" class="result-title" target="_blank" rel="noopener noreferrer">${result.title || displayUrl}</a>
+                        <a href="${displayUrl}" class="result-title" target="_blank" rel="noopener noreferrer">
+                            ${result.title || displayUrl}
+                        </a>
                         <div class="result-url">${displayUrl}</div>
                         <div class="result-description">${result.description}</div>
                     </div>
                 `;
-                
                 resultsContainer.appendChild(resultElement);
             });
             
-            // Show load more button
             loadMoreContainer.style.display = 'block';
-            
-            // Scroll to results if we're not loading more
             if (!isLoadMore) {
                 resultsContainer.scrollIntoView({ behavior: 'smooth' });
             }
@@ -303,6 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Make performSearch available globally
+    // Make functions available globally
     window.performSearch = performSearch;
+    window.switchLanguage = switchLanguage;
 });
