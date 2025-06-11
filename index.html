@@ -446,10 +446,9 @@
 
         // API configuration
         const API_CONFIG = {
-            endpoints: [
-                'https://api.onlysq.ru/ai/v2',
-                'https://backup-api.onlysq.ru/ai/v2'
-            ],
+            baseUrl: "https://api.onlysq.ru/ai/openai",
+            apiKey: "openai",
+            model: "gpt-4o-mini",
             timeout: 10000, // 10 seconds
             retries: 2
         };
@@ -730,24 +729,22 @@
 
                     // API request data structure matching the example
                     const requestData = {
-                        model: "Searchgpt",
-                        request: {
-                            messages: [{
-                                role: "user",
-                                content: prompt
-                            }]
-                        }
+                        model: API_CONFIG.model,
+                        messages: [{
+                            role: "user",
+                            content: prompt
+                        }]
                     };
 
-                    // Try multiple API endpoints
+                    // Try API request with retries
                     let responseData;
-                    for (let i = 0; i < API_CONFIG.endpoints.length; i++) {
+                    for (let i = 0; i < API_CONFIG.retries + 1; i++) {
                         try {
-                            const response = await fetch(API_CONFIG.endpoints[i], {
+                            const response = await fetch(`${API_CONFIG.baseUrl}/v1/chat/completions`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'Accept': 'application/json'
+                                    'Authorization': `Bearer ${API_CONFIG.apiKey}`
                                 },
                                 body: JSON.stringify(requestData),
                                 signal: abortController.signal
@@ -759,9 +756,9 @@
                             }
 
                             responseData = await response.json();
-                            if (responseData.answer) break; // Use answer if available
+                            break;
                         } catch (error) {
-                            if (i === API_CONFIG.endpoints.length - 1) throw error;
+                            if (i === API_CONFIG.retries) throw error;
                             console.warn(`Attempt ${i+1} failed:`, error);
                         }
                     }
@@ -771,14 +768,16 @@
                         loadingElement.style.display = 'none';
                     }
 
-                    if (responseData && responseData.answer) {
+                    if (responseData && responseData.choices && responseData.choices[0] && responseData.choices[0].message) {
+                        const answer = responseData.choices[0].message.content;
+                        
                         if (customPrompt) {
-                            appState.currentFastAnswer = responseData.answer;
+                            appState.currentFastAnswer = answer;
                             const newAnswerElement = document.createElement('div');
                             newAnswerElement.className = 'fast-answer';
                             newAnswerElement.innerHTML = `
                                 <div class="fast-answer-title">${translations[lang].quickAnswer}</div>
-                                <div>${safeFormatText(responseData.answer)}</div>
+                                <div>${safeFormatText(answer)}</div>
                                 <div class="fast-answer-actions">
                                     <button class="fast-answer-button" onclick="performSearch('', false, 'make_longer')">
                                         ${translations[lang].makeLonger}
@@ -796,7 +795,7 @@
                             `;
                             resultsContainer.prepend(newAnswerElement);
                         } else {
-                            displayResults(responseData.answer, lang, isLoadMore);
+                            displayResults(answer, lang, isLoadMore);
                         }
                     } else {
                         resultsContainer.innerHTML = `<p>${translations[lang].noResults}</p>`;
