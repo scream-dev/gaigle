@@ -446,10 +446,9 @@
 
         // API configuration
         const API_CONFIG = {
-            endpoints: [
-                'https://api.onlysq.ru/ai/v2',
-                'https://backup-api.onlysq.ru/ai/v2'
-            ],
+            baseUrl: "https://api.onlysq.ru/ai/openai",
+            apiKey: "openai",
+            model: "gpt-4o-mini",
             timeout: 10000, // 10 seconds
             retries: 2
         };
@@ -701,6 +700,7 @@
                     appState.activeRequests++;
 
                     // Prepare API request according to the example format
+                    // Prepare API request according to the example format
                     const lang = getCookie('lang') || 'en';
                     let prompt;
                     
@@ -729,6 +729,7 @@
                     }
 
                     // API request data structure matching the example
+                    // API request data structure matching the example
                     const requestData = {
                         model: "Searchgpt",
                         request: {
@@ -743,11 +744,11 @@
                     let responseData;
                     for (let i = 0; i < API_CONFIG.endpoints.length; i++) {
                         try {
-                            const response = await fetch(API_CONFIG.endpoints[i], {
+                            const response = await fetch(`${API_CONFIG.baseUrl}/v1/chat/completions`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'Accept': 'application/json'
+                                    'Authorization': `Bearer ${API_CONFIG.apiKey}`
                                 },
                                 body: JSON.stringify(requestData),
                                 signal: abortController.signal
@@ -761,7 +762,7 @@
                             responseData = await response.json();
                             if (responseData.answer) break; // Use answer if available
                         } catch (error) {
-                            if (i === API_CONFIG.endpoints.length - 1) throw error;
+                            if (i === API_CONFIG.retries) throw error;
                             console.warn(`Attempt ${i+1} failed:`, error);
                         }
                     }
