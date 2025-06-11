@@ -693,7 +693,7 @@
                     loadingElement.style.display = 'block';
                     appState.activeRequests++;
 
-                    // Prepare API request
+                    // Prepare API request according to the example format
                     const lang = getCookie('lang') || 'en';
                     let prompt;
                     
@@ -721,8 +721,9 @@
                                     fast=answer`;
                     }
 
+                    // API request data structure matching the example
                     const requestData = {
-                        model: "searchgpt",
+                        model: "Searchgpt",
                         request: {
                             messages: [{
                                 role: "user",
@@ -732,7 +733,7 @@
                     };
 
                     // Try multiple API endpoints
-                    let data;
+                    let responseData;
                     for (let i = 0; i < API_CONFIG.endpoints.length; i++) {
                         try {
                             const response = await fetch(API_CONFIG.endpoints[i], {
@@ -750,8 +751,8 @@
                                 throw new Error(errorData.message || `HTTP ${response.status}`);
                             }
 
-                            data = await response.json();
-                            if (data.answer) break;
+                            responseData = await response.json();
+                            if (responseData.answer) break; // Use answer if available
                         } catch (error) {
                             if (i === API_CONFIG.endpoints.length - 1) throw error;
                             console.warn(`Attempt ${i+1} failed:`, error);
@@ -763,14 +764,14 @@
                         loadingElement.style.display = 'none';
                     }
 
-                    if (data.answer) {
+                    if (responseData && responseData.answer) {
                         if (customPrompt) {
-                            appState.currentFastAnswer = data.answer;
+                            appState.currentFastAnswer = responseData.answer;
                             const newAnswerElement = document.createElement('div');
                             newAnswerElement.className = 'fast-answer';
                             newAnswerElement.innerHTML = `
                                 <div class="fast-answer-title">${translations[lang].quickAnswer}</div>
-                                <div>${safeFormatText(data.answer)}</div>
+                                <div>${safeFormatText(responseData.answer)}</div>
                                 <div class="fast-answer-actions">
                                     <button class="fast-answer-button" onclick="performSearch('', false, 'make_longer')">
                                         ${translations[lang].makeLonger}
@@ -788,7 +789,7 @@
                             `;
                             resultsContainer.prepend(newAnswerElement);
                         } else {
-                            displayResults(data.answer, lang, isLoadMore);
+                            displayResults(responseData.answer, lang, isLoadMore);
                         }
                     } else {
                         resultsContainer.innerHTML = `<p>${translations[lang].noResults}</p>`;
