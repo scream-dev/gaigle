@@ -1,7 +1,5 @@
 # Gaigle
 
-A fan fork of Google with the introduction of artificial intelligence Searchg. 
+### Gaigle is a fan fork of Google with the introduction of Artificial Intelligence Search, using SearchGPT. <br> It is currently under development, but can already be used as your main search engine.
 
-It is currently under development, but it can already be used as the main search engine.
-
-This site is in no way affiliated with Google Corporation, and is not produced by it. All the answers are made by the neural network and may not be 100% correct.
+#### P.S. Currently down
