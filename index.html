@@ -440,8 +440,9 @@
             banDuration: 15 // seconds
         };
 
-        // API configuration for OnlySq API 2.0 with Searchgpt model
+        // API configuration for OnlySq API 2.0 with SearcGPT model
         const API_CONFIG = {
+            // my friend is so fucking stupid he put the API key right into the code and i don't have access to the dashboard to revoke it.
             baseUrl: "https://api.onlysq.ru/ai/openai",
             apiKey: "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",
             model: "Searchgpt",
@@ -511,7 +512,7 @@
         function setLanguage(lang) {
             if (!translations[lang]) lang = 'en';
             
-            // Update UI elements
+            // UI elements
             const elementsToUpdate = {
                 'page-title': translations[lang].pageTitle,
                 'search-input': translations[lang].searchPlaceholder,
@@ -531,7 +532,7 @@
                 }
             }
 
-            // Update language switcher
+            // Language switcher
             const languageSwitcher = document.getElementById('language-switcher');
             if (languageSwitcher) {
                 languageSwitcher.innerHTML = lang === 'en' 
@@ -663,7 +664,7 @@
                         return;
                     }
 
-                    // Update rate limiting state
+                    // Rate limiting state
                     appState.requestCount++;
                     appState.lastRequestTime = now;
                     
@@ -684,7 +685,6 @@
                         }
                     }
 
-                    // UI updates
                     hideError();
                     if (!isLoadMore && !customPrompt) {
                         resultsContainer.innerHTML = '';
@@ -693,7 +693,7 @@
                     loadingElement.style.display = 'block';
                     appState.activeRequests++;
 
-                    // Prepare API request for OnlySq API 2.0 with Searchgpt model
+                    // Prepare API request for OnlySq API
                     const lang = getCookie('lang') || 'en';
                     let prompt;
                     
