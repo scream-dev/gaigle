@@ -117,11 +117,11 @@
             banDuration: 15 // seconds
         };
 
-        // API configuration for OnlySq API 2.0 with Searchgpt model
+        // Updated API configuration for OnlySq API 2.0 with Searchgpt model
         const API_CONFIG = {
-            baseUrl: "https://api.onlysq.ru/ai/openai",
-            apiKey: "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",
-            model: "Searchgpt",
+            baseUrl: "https://api.onlysq.ru/ai/v2",
+            apiKey: "YOUR_API_KEY", // Replace with your actual API key
+            model: "searchgpt",
             timeout: 10000, // 10 seconds
             retries: 2
         };
@@ -398,19 +398,21 @@
                                     fast=answer`;
                     }
 
-                    // API request data structure for OnlySq API 2.0
+                    // Updated API request data structure for OnlySq API 2.0
                     const requestData = {
                         model: API_CONFIG.model,
-                        messages: [{
-                            role: "user",
-                            content: prompt
-                        }]
+                        request: {
+                            messages: [{
+                                role: "user",
+                                content: prompt
+                            }]
+                        }
                     };
 
                     // Make API request to OnlySq API 2.0
                     let response;
                     try {
-                        response = await fetch(API_CONFIG.baseUrl + "/v1/chat/completions", {
+                        response = await fetch(API_CONFIG.baseUrl, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
