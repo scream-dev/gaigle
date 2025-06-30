@@ -117,10 +117,10 @@
             banDuration: 15 // seconds
         };
 
-        // Updated API configuration for OnlySq API 2.0 with Searchgpt model
+        // API configuration for OnlySq API 2.0 with Searchgpt model
         const API_CONFIG = {
             baseUrl: "https://api.onlysq.ru/ai/v2",
-            apiKey: "YOUR_API_KEY", // Replace with your actual API key
+            apiKey: "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", 
             model: "searchgpt",
             timeout: 10000, // 10 seconds
             retries: 2
@@ -134,7 +134,8 @@
             rateLimitSlowdown: false,
             currentQuery: '',
             currentFastAnswer: '',
-            activeRequests: 0
+            activeRequests: 0,
+            requestHistory: []
         };
 
         // Cookie functions
@@ -326,26 +327,35 @@
                         if (query === '') return;
                     }
 
-                    // Rate limiting check
+                    // Rate limiting check - FIXED VERSION
                     const now = Date.now();
                     const timeSinceLastRequest = (now - appState.lastRequestTime) / 1000;
                     
-                    if (appState.rateLimitActive && timeSinceLastRequest < RATE_LIMIT_CONFIG.banDuration) {
-                        showError(translations[getCookie('lang') || 'en'].rateLimitWarning);
-                        return;
+                    // Reset counters if time window has passed
+                    if (timeSinceLastRequest >= RATE_LIMIT_CONFIG.timeWindow) {
+                        appState.requestCount = 0;
+                        appState.rateLimitActive = false;
+                        appState.rateLimitSlowdown = false;
                     }
                     
+                    // Check if we're in slowdown mode
                     if (appState.rateLimitSlowdown && timeSinceLastRequest < RATE_LIMIT_CONFIG.slowdownDelay) {
                         showError(translations[getCookie('lang') || 'en'].rateLimitSlowdown);
                         return;
                     }
+                    
+                    // Check if we're in ban mode
+                    if (appState.rateLimitActive) {
+                        showError(translations[getCookie('lang') || 'en'].rateLimitWarning);
+                        return;
+                    }
 
-                    // Update rate limiting state
+                    // Update request count and timestamp
                     appState.requestCount++;
                     appState.lastRequestTime = now;
                     
-                    if (appState.requestCount >= RATE_LIMIT_CONFIG.maxRequests && 
-                        timeSinceLastRequest < RATE_LIMIT_CONFIG.timeWindow) {
+                    // Activate rate limiting if needed
+                    if (appState.requestCount >= RATE_LIMIT_CONFIG.maxRequests) {
                         if (appState.requestCount >= RATE_LIMIT_CONFIG.banAfter) {
                             appState.rateLimitActive = true;
                             setTimeout(() => {
@@ -354,10 +364,6 @@
                             }, RATE_LIMIT_CONFIG.banDuration * 1000);
                         } else {
                             appState.rateLimitSlowdown = true;
-                            setTimeout(() => {
-                                appState.rateLimitSlowdown = false;
-                                appState.requestCount = 0;
-                            }, RATE_LIMIT_CONFIG.timeWindow * 1000);
                         }
                     }
 
@@ -398,7 +404,7 @@
                                     fast=answer`;
                     }
 
-                    // Updated API request data structure for OnlySq API 2.0
+                    // API request data structure for OnlySq API 2.0
                     const requestData = {
                         model: API_CONFIG.model,
                         request: {
