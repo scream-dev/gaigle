@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Gaigle - AI-Powered Search</title>
+    <link rel="icon" href="icon.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        // База API. Пусто = тот же origin (дев-режим, когда клиент раздаёт Express).
+        // Для GitHub Pages указан адрес задеплоенного бэкенда на VPS.
+        window.GAIGLE_API_BASE = "https://gaigle-api.screamdev.xyz";
+    </script>
+</head>
+<body>
+    <div class="language-switcher" id="language-switcher"></div>
+
+    <div class="header">
+        <a href="/" id="website-root">
+            <img src="assets/home.svg" width="16" alt="Home">
+        </a>
+        <a href="/about.html" id="about-link">
+            <img src="assets/about.svg" width="22" alt="About">
+        </a>
+        <a href="#" id="settings-link">
+            <img src="assets/settings.svg" width="20" alt="Settings">
+        </a>
+    </div>
+
+    <div class="main" id="main-content">
+        <div class="logo" id="logo">Gaigle</div>
+
+        <div class="search-container">
+            <input type="text" class="search-box" id="search-input" placeholder="Search with Gaigle..." autocomplete="off" autofocus>
+            <button class="search-button" id="search-icon-button" aria-label="Search">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div class="error-container" id="error-container"></div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loading-text">Searching with AI...</p>
+        </div>
+
+        <div class="results-container" id="results-container"></div>
+
+        <div class="load-more" id="load-more-container" style="display: none;">
+            <button class="load-more-button" id="load-more-button">More</button>
+        </div>
+    </div>
+
+    <div class="footer" id="disclaimer">
+        <p>This website is not affiliated with Google Corporation, and is not produced by it. All answers are made by AI and might not be 100% correct.</p>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

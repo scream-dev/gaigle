@@ -1,0 +1,5 @@
+# Реверс-прокси для бэкенда Gaigle с автоматическим HTTPS (Let's Encrypt).
+# Caddy сам выпустит и продлит сертификат для домена ниже.
+gaigle-api.screamdev.xyz {
+	reverse_proxy 127.0.0.1:3000
+}

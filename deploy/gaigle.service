@@ -1,0 +1,18 @@
+[Unit]
+Description=Gaigle backend (Node/Express -> OnlySq)
+After=network.target
+
+[Service]
+Type=simple
+# Поменяйте путь и пользователя под свой VPS
+WorkingDirectory=/srv/gaigle/server
+EnvironmentFile=/srv/gaigle/server/.env
+ExecStart=/usr/bin/node src/index.js
+Environment=NODE_ENV=production
+Restart=on-failure
+RestartSec=3
+User=gaigle
+Group=gaigle
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,138 @@
+API2.0
+POSThttps://api.onlysq.ru/ai/v2
+
+Generates a text response to a user message(s).
+Every request must include the Authorization header.
+{"Authorization": "Bearer apikey"}
+
+Use your personal key from Go to your profile. Key openai is no longer supported.
+Request
+
+This endpoint expects an object.
+
+    model (string, required): The name of a OnlySq AI model which will process the request.
+    request (dict, required): Query data dictionary containing:
+        messages (list, required): Chat messages in order.
+        meta (dict, optional): previously used by ImaGen.
+        image_count (int, optional): previously used when generating with ImaGen.
+
+Response
+
+    id (string): Unique identifier.
+    object (string): Object init for OpenAI SDK.
+    created (int): UNIX timestamp.
+    model (string): Model that processed the request.
+    answer (string, disabled): legacy response field.
+    choices (list): completion choices:
+        index (int)
+        message (dict): role, content, etc.
+        finish_reason (string): stop | error
+    usage (dict): prompt_tokens, completion_tokens, total_tokens.
+    user (int): Unique of user by API key.
+
+Sync request example
+import requests
+ 
+headers = {
+    "Authorization":"Bearer YOUR_API_KEY"
+}
+ 
+send = {
+    "model": "gemini-2.5-flash",
+    "request": {
+        "messages": [
+            {
+                "role": "user",
+                "content": "Hi! Write a short one-line story"
+            }
+        ]
+    }
+}
+ 
+request = requests.post('https://api.onlysq.ru/ai/v2', json=send, headers=headers)
+response = request.json()
+print(response)
+This returns the following response to the console
+
+"Under the streetlight, she found the courage to let go of the letterвЂ”and the past."
+
+Response example
+{
+    "id": "chat_XBt6z670WKm7L9BVoCcLZLzTNZ03UJhD6sWqAEUyTgaJvhJA",
+    "object": "chat.completion",
+    "created": 1745146202,
+    "model": "gpt-4o-mini",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "\"Under the full moon, the werewolf realized he'd forgotten his keysвЂ”again.\"",
+                "refusal": null,
+                "annotations": []
+            },
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 11,
+        "completion_tokens": 19,
+        "total_tokens": 30
+    },
+    "user": 0
+}
+Streaming request example
+import requests, json
+ 
+url = "https://api.onlysq.ru/ai/v2"
+ 
+data = {
+    "model": "gpt-4o-mini",
+    "request": {
+        "messages": [
+            {
+                "role": "user",
+                "content": "Write a one-line story about AI."
+            }
+        ],
+        "stream": True
+    }
+}
+ 
+with requests.post(url, json=data, stream=True) as response:
+    if response.status_code == 200:
+        for line in response.iter_lines():
+            if line:
+                decoded_line = line.decode('utf-8').strip()
+                if decoded_line.startswith("data: "):
+                    decoded_line = decoded_line[len("data: "):]
+                if decoded_line == "[DONE]":
+                    break
+                chunk = json.loads(decoded_line)
+                content = chunk["choices"][0]["delta"].get("content")
+                if content:
+                    print(content, end="", flush=True)
+    else:
+        print(response.status_code, response.text)
+Console output
+
+"After mastering human emotions, the AI sighed and shut itself down, realizing loneliness wasnвЂ™t worth the code."
+
+Streaming chunk example
+{
+    "id": "chatcmpl_lQdhTfXn4yKoDlyCjuBpL0GfPZNonZufGqOyGl3wVpMhJRwP",
+    "object": "chat.completion.chunk",
+    "created": 1750612428,
+    "model": "gpt-4o-mini",
+    "choices": [
+        {
+            "index": 0,
+            "delta": {
+                "content": "te",
+                "role": "assistant"
+            },
+            "finish_reason": null
+        }
+    ],
+    "usage": null
+}
